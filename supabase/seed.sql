@@ -1,0 +1,2 @@
+-- Seed file for local development
+-- Migrations in supabase/migrations/ are automatically executed before this seed.

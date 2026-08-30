@@ -1,0 +1,26 @@
+node_modules
+**/.next
+.env*
+!.env.example
+*.log
+.DS_Store
+.freebuff/
+AGENTS.md
+*.tsbuildinfo
+**/next-env.d.ts
+
+# Build desktop (futuro workspace Electron)
+apps/desktop/dist
+apps/desktop/release
+apps/desktop/data
+apps/desktop/*.db
+apps/desktop/*.db-shm
+apps/desktop/*.db-wal
+
+# Artefatti di test/strumenti generati
+output/
+.playwright-cli/
+
+# Stato locale della Supabase CLI
+supabase/.temp/
+supabase/.branches/

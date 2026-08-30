@@ -1,0 +1,30 @@
+{
+  "name": "fantasta",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @fantasta/web",
+    "build": "npm run build --workspace @fantasta/web",
+    "start": "npm run start --workspace @fantasta/web",
+    "lint": "npm run lint --workspace @fantasta/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "verify": "npm run lint && npm run typecheck && npm test",
+    "test:domain": "npm run test --workspace @fantasta/domain",
+    "web:dev": "npm run dev --workspace @fantasta/web",
+    "web:build": "npm run build --workspace @fantasta/web",
+    "desktop:start": "npm run start --workspace @fantasta/desktop",
+    "desktop:electron": "npm run electron --workspace @fantasta/desktop",
+    "desktop:renderer": "npm run dev --workspace @fantasta/web -- --hostname 0.0.0.0",
+    "desktop:package": "npm run web:build && npm run package --workspace @fantasta/desktop"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.57.0",
+    "supabase": "^2.116.0"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@fantasta/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./commands": "./src/commands.ts",
+    "./rpc": "./src/rpc.ts"
+  },
+  "scripts": {
+    "test": "tsx --test src/commands.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fantasta/domain": "0.1.0",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.2"
+  }
+}
