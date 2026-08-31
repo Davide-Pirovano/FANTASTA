@@ -2,10 +2,12 @@ import { randomBytes, randomUUID } from "node:crypto";
 import {
   joinLeagueCommandSchema,
   rejoinLeagueCommandSchema,
+  repairAuctionInputSchema,
   setupInputSchema,
   type JoinLeagueCommand,
   type RejoinLeagueCommand,
   type SetupInput,
+  type RepairAuctionInput,
 } from "@fantasta/contracts";
 import {
   buildTeamSummaries,
@@ -218,6 +220,70 @@ export class LeagueStore {
     });
   }
 
+  createRepairAuction(ownerSessionId: string, input: RepairAuctionInput, inviteCode = newInviteCode()): LocalLeague {
+    const repair = repairAuctionInputSchema.parse(input);
+    if (repair.source.kind === "excel") {
+      return this.createRepairAuctionFromExport(ownerSessionId, repair, repair.source.teams, inviteCode);
+    }
+    const sourceLeagueId = repair.source.leagueId;
+    return withImmediateTransaction(this.database, () => {
+      const source = this.database.prepare("SELECT * FROM leagues WHERE id = ? AND owner_session_id = ? AND status = 'COMPLETED'").get(sourceLeagueId, ownerSessionId) as LocalLeagueRow | undefined;
+      if (!source) throw new LocalStoreError("LEAGUE_NOT_FOUND", "Seleziona un'asta conclusa di cui sei admin");
+      const rules = this.getRules(source.id);
+      if (!rules) throw new LocalStoreError("LEAGUE_NOT_FOUND", "Regole dell'asta iniziale non trovate");
+      const leagueId = randomUUID();
+      this.database.prepare("INSERT INTO leagues (id,owner_session_id,name,invite_code,status,participant_limit,initial_budget,min_bid,aste_mode,repair_of_league_id) VALUES (?,?,?,?, 'LOBBY',?,?,?,?,?)")
+        .run(leagueId, ownerSessionId, repair.leagueName, inviteCode.toUpperCase(), source.participant_limit, repair.initialBudget, repair.minBid, repair.asteMode, source.id);
+      this.database.prepare("INSERT INTO league_rules (league_id,goalkeeper_slots,defender_slots,midfielder_slots,attacker_slots,auction_timer_seconds,release_refund) VALUES (?,?,?,?,?,?,?)")
+        .run(leagueId, rules.goalkeeper_slots, rules.defender_slots, rules.midfielder_slots, rules.attacker_slots, repair.auctionTimerSeconds, repair.releaseRefund);
+      const insertPlayer = this.database.prepare("INSERT INTO players (id,league_id,name,real_team,role,quotation,is_trequartista) VALUES (?,?,?,?,?,?,?)");
+      for (const player of repair.players) insertPlayer.run(randomUUID(), leagueId, player.name, player.real_team, player.role, player.quotation, player.is_trequartista ? 1 : 0);
+      const sourceParticipants = this.database.prepare("SELECT * FROM participants WHERE league_id = ? ORDER BY turn_order").all(source.id) as Array<{ id:string; session_id:string; display_name:string; team_name:string; budget_remaining:number; turn_order:number }>;
+      const participantMap = new Map<string, string>();
+      for (const participant of sourceParticipants) { const id=randomUUID(); participantMap.set(participant.id,id); const budget=repair.creditMode === "fixed" ? repair.fixedCredits ?? 0 : participant.budget_remaining + (repair.creditMode === "carry_plus" ? repair.fixedCredits ?? 0 : 0); this.database.prepare("INSERT INTO participants (id,league_id,session_id,display_name,team_name,budget_remaining,turn_order,connected) VALUES (?,?,?,?,?,?,?,0)").run(id,leagueId,participant.session_id,participant.display_name,participant.team_name,budget,participant.turn_order); }
+      const available = this.database.prepare("SELECT id,name FROM players WHERE league_id = ?").all(leagueId) as Array<{id:string;name:string}>;
+      const playerByName = new Map(available.map((p) => [p.name.trim().toLocaleLowerCase(), p.id]));
+      const oldPurchases = this.database.prepare("SELECT pu.*, p.name, p.quotation FROM purchases pu JOIN players p ON p.id=pu.player_id WHERE pu.league_id=? AND pu.released_at IS NULL").all(source.id) as Array<{participant_id:string;price:number;created_at:string;name:string;quotation:number}>;
+      for (const purchase of oldPurchases) {
+        const participantId=participantMap.get(purchase.participant_id); if (!participantId) continue;
+        const playerId=playerByName.get(purchase.name.trim().toLocaleLowerCase());
+        if (!playerId) { const refund=repair.movedAwayRefund === "one" ? 1 : repair.movedAwayRefund === "half" ? Math.max(1,Math.ceil(purchase.price/2)) : repair.movedAwayRefund === "full" ? purchase.price : purchase.quotation; this.database.prepare("UPDATE participants SET budget_remaining=budget_remaining+? WHERE id=?").run(refund,participantId); continue; }
+        this.database.prepare("UPDATE players SET status='SOLD' WHERE id=?").run(playerId);
+        const auctionId=randomUUID(); this.database.prepare("INSERT INTO auctions (id,league_id,player_id,nominated_by,current_bid,highest_bidder_id,status,completed_at) VALUES (?,?,?,?,?,?,'AWARDED',strftime('%Y-%m-%dT%H:%M:%fZ','now'))").run(auctionId,leagueId,playerId,participantId,purchase.price,participantId);
+        this.database.prepare("INSERT INTO purchases (id,league_id,auction_id,participant_id,player_id,price,created_at,is_initial_roster) VALUES (?,?,?,?,?,?,?,1)").run(randomUUID(),leagueId,auctionId,participantId,playerId,purchase.price,purchase.created_at);
+      }
+      return { id: leagueId, inviteCode: inviteCode.toUpperCase(), name: repair.leagueName };
+    });
+  }
+
+  private createRepairAuctionFromExport(ownerSessionId: string, repair: RepairAuctionInput, teams: Extract<RepairAuctionInput["source"], { kind: "excel" }>["teams"], inviteCode: string): LocalLeague {
+    return withImmediateTransaction(this.database, () => {
+      if (!this.database.prepare("SELECT id FROM sessions WHERE id = ?").get(ownerSessionId)) throw new LocalStoreError("SESSION_NOT_FOUND", "Sessione admin non valida");
+      const leagueId = randomUUID();
+      const counts = teams.map((team) => ({
+        P: team.purchases.filter((purchase) => purchase.role === "P").length,
+        D: team.purchases.filter((purchase) => purchase.role === "D").length,
+        C: team.purchases.filter((purchase) => purchase.role === "C").length,
+        A: team.purchases.filter((purchase) => purchase.role === "A").length,
+      }));
+      const slots = { P: Math.max(...counts.map((item) => item.P)), D: Math.max(...counts.map((item) => item.D)), C: Math.max(...counts.map((item) => item.C)), A: Math.max(...counts.map((item) => item.A)) };
+      this.database.prepare("INSERT INTO leagues (id,owner_session_id,name,invite_code,status,participant_limit,initial_budget,min_bid,aste_mode) VALUES (?,?,?,?, 'LOBBY',?,?,?,?)")
+        .run(leagueId,ownerSessionId,repair.leagueName,inviteCode.toUpperCase(),teams.length,repair.initialBudget,repair.minBid,repair.asteMode);
+      this.database.prepare("INSERT INTO league_rules (league_id,goalkeeper_slots,defender_slots,midfielder_slots,attacker_slots,auction_timer_seconds,release_refund) VALUES (?,?,?,?,?,?,?)")
+        .run(leagueId,slots.P,slots.D,slots.C,slots.A,repair.auctionTimerSeconds,repair.releaseRefund);
+      const insertPlayer=this.database.prepare("INSERT INTO players (id,league_id,name,real_team,role,quotation,is_trequartista) VALUES (?,?,?,?,?,?,?)");
+      for (const player of repair.players) insertPlayer.run(randomUUID(),leagueId,player.name,player.real_team,player.role,player.quotation,player.is_trequartista ? 1 : 0);
+      const available = new Set((this.database.prepare("SELECT name FROM players WHERE league_id=?").all(leagueId) as Array<{name:string}>).map((player)=>player.name.trim().toLocaleLowerCase()));
+      const insertTeam=this.database.prepare("INSERT INTO repair_imported_teams (id,league_id,team_name,budget_remaining,turn_order,roster) VALUES (?,?,?,?,?,?)");
+      teams.forEach((team,index)=>{
+        const base=repair.creditMode === "fixed" ? repair.fixedCredits ?? 0 : team.remainingBudget+(repair.creditMode === "carry_plus" ? repair.fixedCredits ?? 0 : 0);
+        const refund=team.purchases.filter((purchase)=>!available.has(purchase.name.trim().toLocaleLowerCase())).reduce((sum,purchase)=>sum+(repair.movedAwayRefund === "one" ? 1 : repair.movedAwayRefund === "half" ? Math.max(1,Math.ceil(purchase.price/2)) : repair.movedAwayRefund === "full" ? purchase.price : purchase.quotation ?? purchase.price),0);
+        insertTeam.run(randomUUID(),leagueId,team.teamName,base+refund,index,JSON.stringify(team.purchases));
+      });
+      return { id:leagueId,inviteCode:inviteCode.toUpperCase(),name:repair.leagueName };
+    });
+  }
+
   listLeaguesByAdmin(adminSessionId: string): LocalLeagueSummary[] {
     return this.database.prepare(`
       SELECT l.id, l.name, l.invite_code, l.status, l.participant_limit,
@@ -303,10 +369,10 @@ export class LeagueStore {
     } : null;
     const purchases = this.database.prepare(`
       SELECT pu.id, pu.price, pu.created_at, pu.participant_id, pu.player_id,
-        pu.released_at, p.name AS player_name, p.real_team, p.role
+        pu.released_at, pu.is_initial_roster, p.name AS player_name, p.real_team, p.role, p.quotation
       FROM purchases pu JOIN players p ON p.id = pu.player_id
       WHERE pu.league_id = ? ORDER BY pu.created_at DESC
-    `).all(league.id) as PurchaseRow[];
+    `).all(league.id) as unknown as PurchaseRow[];
     const availablePlayers = this.database.prepare(`
       SELECT id, name, real_team, role, quotation, is_trequartista
       FROM players WHERE league_id = ? AND status = 'AVAILABLE' ORDER BY name
@@ -373,6 +439,34 @@ export class LeagueStore {
       if (!league) throw new LocalStoreError("LEAGUE_NOT_FOUND", "Lega non trovata");
       if (league.status !== "SETUP" && league.status !== "LOBBY") {
         throw new LocalStoreError("LEAGUE_UNAVAILABLE", "Lega non disponibile");
+      }
+
+      const reserved = this.database.prepare(`
+        SELECT id, team_name, budget_remaining, turn_order, roster, claimed_participant_id
+        FROM repair_imported_teams WHERE league_id = ? AND team_name = ? COLLATE NOCASE
+      `).get(league.id, command.teamName) as { id:string; team_name:string; budget_remaining:number; turn_order:number; roster:string; claimed_participant_id:string|null } | undefined;
+      if (reserved) {
+        if (reserved.claimed_participant_id) throw new LocalStoreError("TEAM_ALREADY_EXISTS", "Questa squadra è già stata collegata");
+        const participantId=randomUUID();
+        this.database.prepare("INSERT INTO participants (id,league_id,session_id,display_name,team_name,budget_remaining,turn_order) VALUES (?,?,?,?,?,?,?)")
+          .run(participantId,league.id,sessionId,command.participantName,reserved.team_name,reserved.budget_remaining,reserved.turn_order);
+        const roster=JSON.parse(reserved.roster) as Array<{name:string;price:number}>;
+        for (const purchase of roster) {
+          const player=this.database.prepare("SELECT id FROM players WHERE league_id=? AND name=? COLLATE NOCASE").get(league.id,purchase.name) as {id:string}|undefined;
+          if (!player) continue;
+          this.database.prepare("UPDATE players SET status='SOLD' WHERE id=?").run(player.id);
+          const auctionId=randomUUID();
+          this.database.prepare("INSERT INTO auctions (id,league_id,player_id,nominated_by,current_bid,highest_bidder_id,status,completed_at) VALUES (?,?,?,?,?,?,'AWARDED',strftime('%Y-%m-%dT%H:%M:%fZ','now'))")
+            .run(auctionId,league.id,player.id,participantId,purchase.price,participantId);
+          this.database.prepare("INSERT INTO purchases (id,league_id,auction_id,participant_id,player_id,price) VALUES (?,?,?,?,?,?)")
+            .run(randomUUID(),league.id,auctionId,participantId,player.id,purchase.price);
+        }
+        this.database.prepare("UPDATE repair_imported_teams SET claimed_participant_id=? WHERE id=?").run(participantId,reserved.id);
+        this.bumpLeague(league.id);
+        return { id:participantId,leagueId:league.id,sessionId,teamName:reserved.team_name,budgetRemaining:reserved.budget_remaining,turnOrder:reserved.turn_order };
+      }
+      if (this.database.prepare("SELECT 1 FROM repair_imported_teams WHERE league_id=? LIMIT 1").get(league.id)) {
+        throw new LocalStoreError("TEAM_ALREADY_EXISTS", "Inserisci il nome esatto di una squadra presente nell'export");
       }
 
       const countRow = this.database
@@ -647,6 +741,9 @@ export class LeagueStore {
       if (status === "LIVE" && !(this.database.prepare(
         "SELECT 1 FROM participants WHERE league_id = ? LIMIT 1",
       ).get(leagueId))) throw new LocalStoreError("NO_PARTICIPANTS", "Serve almeno un partecipante");
+      if (status === "LIVE" && this.database.prepare("SELECT 1 FROM repair_imported_teams WHERE league_id=? AND claimed_participant_id IS NULL LIMIT 1").get(leagueId)) {
+        throw new LocalStoreError("NO_PARTICIPANTS", "Attendi che tutte le squadre entrino nella lobby");
+      }
 
       if (status === "PAUSED") {
         this.database.prepare(
@@ -836,18 +933,20 @@ export class LeagueStore {
       const purchase = this.database.prepare(`
         SELECT pu.id, pu.league_id AS leagueId, pu.participant_id AS participantId,
           pu.player_id AS playerId, pu.price, pu.released_at AS releasedAt,
-          l.status, l.owner_session_id AS ownerSessionId, r.release_refund AS releaseRefund
+          l.status, l.owner_session_id AS ownerSessionId, r.release_refund AS releaseRefund,
+          p.quotation
         FROM purchases pu JOIN leagues l ON l.id = pu.league_id
         JOIN league_rules r ON r.league_id = pu.league_id
+        JOIN players p ON p.id = pu.player_id
         WHERE pu.player_id = ? AND pu.released_at IS NULL
       `).get(playerId) as (LocalPurchase & {
-        status: LeagueStatus; ownerSessionId: string; releaseRefund: ReleaseRefund;
+        status: LeagueStatus; ownerSessionId: string; releaseRefund: ReleaseRefund; quotation:number;
       }) | undefined;
       if (!purchase) throw new LocalStoreError("PURCHASE_NOT_FOUND", "Giocatore non acquistato o già svincolato");
-      if (!["LIVE", "PAUSED", "COMPLETED"].includes(purchase.status)) throw new LocalStoreError("RELEASE_NOT_ALLOWED", "La lega non è in corso");
+      if (!["LOBBY", "LIVE", "PAUSED", "COMPLETED"].includes(purchase.status)) throw new LocalStoreError("RELEASE_NOT_ALLOWED", "La lega non consente svincoli");
       const participant = this.database.prepare("SELECT session_id FROM participants WHERE id = ?").get(purchase.participantId) as { session_id: string } | undefined;
       if (!participant || (participant.session_id !== sessionId && purchase.ownerSessionId !== sessionId)) throw new LocalStoreError("RELEASE_NOT_ALLOWED", "Non puoi svincolare questo giocatore");
-      const refund = refundForRelease(purchase.releaseRefund, purchase.price);
+      const refund = refundForRelease(purchase.releaseRefund, purchase.price, purchase.quotation);
       this.database.prepare("UPDATE participants SET budget_remaining = budget_remaining + ? WHERE id = ?").run(refund, purchase.participantId);
       this.database.prepare("UPDATE players SET status = 'AVAILABLE' WHERE id = ?").run(playerId);
       const releasedAt = new Date().toISOString();

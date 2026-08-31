@@ -15,7 +15,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="it">
+    <html lang="it" suppressHydrationWarning>
       <body>
         {children}
         <Toaster richColors position="top-center" closeButton />

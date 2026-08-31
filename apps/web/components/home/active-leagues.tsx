@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ExternalLink, Plus, Trash2 } from "lucide-react";
+import { ExternalLink, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { deleteLeagueAction } from "@/app/actions/auction";
@@ -71,6 +71,7 @@ export function ActiveLeagues({ leagues }: { leagues: OpenLeague[] }) {
                   </p>
                 </div>
               </Link>
+              {league.status === "COMPLETED" ? <Link href={`/repair?source=${league.id}`} className="pressable grid size-11 shrink-0 place-items-center rounded-xl border border-[var(--line)] text-[var(--brand-dark)] hover:bg-[var(--brand-soft)] sm:size-10" aria-label={`Avvia asta di riparazione da ${league.name}`}><RefreshCw className="size-4" /></Link> : null}
               <button
                 type="button"
                 onClick={() => setConfirmingId(league.id)}

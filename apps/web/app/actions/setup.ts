@@ -1,6 +1,6 @@
 "use server";
 
-import { setupInputSchema, SUPABASE_RPC, type SetupInput } from "@fantasta/contracts";
+import { repairAuctionInputSchema, setupInputSchema, SUPABASE_RPC, type RepairAuctionInput, type SetupInput } from "@fantasta/contracts";
 import { createClient } from "@/lib/supabase/server";
 
 export async function createLeagueWithPlayersAction(data: SetupInput) {
@@ -65,5 +65,35 @@ export async function createLeagueWithPlayersAction(data: SetupInput) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Errore imprevisto durante il setup";
     return { ok: false as const, error: message };
+  }
+}
+
+/** Crea una lega di riparazione senza toccare l'asta iniziale: le rose e i
+ * partecipanti vengono clonati nella RPC in un'unica transazione. */
+export async function createRepairAuctionAction(data: RepairAuctionInput) {
+  try {
+    const parsed = repairAuctionInputSchema.parse(data);
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { ok: false as const, error: "Apri l'asta iniziale con la stessa sessione admin." };
+    const common = {
+        repair_name: parsed.leagueName,
+        starting_budget: parsed.initialBudget,
+        minimum_bid: parsed.minBid,
+        auction_timer: parsed.auctionTimerSeconds,
+        auction_mode: parsed.asteMode,
+        release_refund_rule: parsed.releaseRefund,
+        moved_away_refund_rule: parsed.movedAwayRefund,
+        credit_mode: parsed.creditMode,
+        fixed_credits: parsed.fixedCredits ?? null,
+        player_rows: parsed.players,
+    };
+    const { data: league, error } = parsed.source.kind === "league"
+      ? await supabase.rpc(SUPABASE_RPC.createRepairAuction, { ...common, source_league: parsed.source.leagueId })
+      : await supabase.rpc(SUPABASE_RPC.createRepairAuctionFromExport, { ...common, roster_rows: parsed.source.teams });
+    if (error || !league) return { ok: false as const, error: error?.message ?? "Impossibile creare l'asta di riparazione." };
+    return { ok: true as const, league: { id: league.id as string, invite_code: league.invite_code as string, name: league.name as string } };
+  } catch (err) {
+    return { ok: false as const, error: err instanceof Error ? err.message : "Errore imprevisto durante la creazione." };
   }
 }

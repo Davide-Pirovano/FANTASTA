@@ -115,9 +115,9 @@ export function AdminView({ state, inviteCode, realtimeEnabled, lobbyUrl: lobbyU
   }
 
   return (
-    <div className="min-h-dvh bg-[var(--background)] pb-28">
+    <div className="min-h-dvh bg-[var(--background)] pb-28 xl:pb-16">
       <header className="sticky top-0 z-20 border-b border-[var(--line)] bg-[color:oklch(0.975_0.006_155/0.92)] px-4 py-3 backdrop-blur-md sm:px-6">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3">
           <Link href={homeHref} className="shrink-0"><Logo /></Link>
           <p className="hidden min-w-0 flex-1 truncate text-sm font-black lg:block">{state.league.name}</p>
           <Link
@@ -129,7 +129,7 @@ export function AdminView({ state, inviteCode, realtimeEnabled, lobbyUrl: lobbyU
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 lg:px-8">
+      <main className="px-4 pt-5 sm:px-6 lg:px-8">
         {/* LOBBY / SETUP: QR + partecipanti + avvio */}
         {(status === "SETUP" || status === "LOBBY") && (
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)]">
@@ -204,25 +204,8 @@ export function AdminView({ state, inviteCode, realtimeEnabled, lobbyUrl: lobbyU
           <div className="space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-bold text-[var(--muted)]">
-                  {state.activeAuction ? (
-                    <>
-                      Asta in corso:{" "}
-                      <strong className="text-[var(--ink)]">{state.activeAuction.player.name}</strong>
-                      {" · "}miglior offerta{" "}
-                      <strong className="text-[var(--brand-dark)]">
-                        {leaderName ?? "—"} · <span className="numeric">{leaderPrice}</span>
-                      </strong>
-                    </>
-                  ) : (
-                    <>
-                      In attesa della chiamata:{" "}
-                      <strong className="text-[var(--ink)]">{state.nextCaller?.team_name ?? "—"}</strong>
-                    </>
-                  )}
-                </p>
                 {state.asteMode === "per_ruoli" ? (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-black text-[var(--muted)]">Seleziona fase:</span>
                     <div className="flex rounded-lg bg-[var(--surface-soft)] p-0.5">
                       {PHASE_ORDER.map((phase) => (
@@ -279,8 +262,6 @@ export function AdminView({ state, inviteCode, realtimeEnabled, lobbyUrl: lobbyU
               ))}
             </div>
 
-            {tab === "asta" && (
-            <>
             {confirmingEnd ? (
               <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm">
                 <p className="font-black text-red-800">Terminare definitivamente l&apos;asta?</p>
@@ -299,6 +280,8 @@ export function AdminView({ state, inviteCode, realtimeEnabled, lobbyUrl: lobbyU
               </div>
             ) : null}
 
+            {tab === "asta" && (
+            <>
             {status === "PAUSED" ? (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">
                 <span className="flex items-center gap-2"><CirclePause className="size-5" /> Asta in pausa</span>
@@ -395,11 +378,11 @@ export function AdminView({ state, inviteCode, realtimeEnabled, lobbyUrl: lobbyU
                     </div>
                   )}
 
-                  <RecentPurchases purchases={state.purchases} participants={participantsByName} myParticipantId={state.me?.id ?? null} />
+                  <RecentPurchases purchases={state.purchases} participants={participantsByName} myParticipantId={state.me?.id ?? null} innerScroll={false} />
                 </div>
               </div>
             ) : (
-              <section className="rounded-[1.4rem] border border-dashed border-[var(--line)] bg-[var(--surface)] p-6 text-center">
+              <section className="mb-5 w-full rounded-[1.4rem] border border-dashed border-[var(--line)] bg-[var(--surface)] p-6 text-center">
                 <Users className="mx-auto size-7 text-[var(--brand)]" />
                 <p className="mt-2 font-black">In attesa della chiamata</p>
                 <p className="mt-1 text-sm text-[var(--muted)]">
@@ -408,7 +391,7 @@ export function AdminView({ state, inviteCode, realtimeEnabled, lobbyUrl: lobbyU
                 </p>
                 {state.purchases.length > 0 ? (
                   <div className="mt-5 text-left">
-                    <RecentPurchases purchases={state.purchases} participants={participantsByName} myParticipantId={state.me?.id ?? null} />
+                    <RecentPurchases purchases={state.purchases} participants={participantsByName} myParticipantId={state.me?.id ?? null} innerScroll={false} />
                   </div>
                 ) : null}
               </section>
@@ -416,7 +399,7 @@ export function AdminView({ state, inviteCode, realtimeEnabled, lobbyUrl: lobbyU
             </>
             )}
 
-            {/* Tab Squadre: rose di tutte le squadre in colonne */}
+            {/* Tab Squadre: rose di tutte le squadre in blocchi verticali apribili */}
             {tab === "squadre" && (
               <RostersColumns teams={state.teams} slots={state.slots} releaseRefund={state.releaseRefund} leagueCode={code} />
             )}

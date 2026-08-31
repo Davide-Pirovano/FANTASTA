@@ -198,15 +198,17 @@ export function TeamsOverview({ teams, slots, highlightTeamId, caption, expandab
   );
 }
 
-export function RecentPurchases({ purchases, participants, myParticipantId = null, limit = 8 }: {
+export function RecentPurchases({ purchases, participants, myParticipantId = null, limit = 8, innerScroll = true }: {
   purchases: PurchaseRow[];
   participants: Map<string, string>;
   /** Partecipante collegato alla sessione: evidenzia i suoi acquisti. */
   myParticipantId?: string | null;
   /** Quanti acquisti mostrare (default 8: la vista ridotta nell'asta). */
   limit?: number;
+  /** Scroll interno della lista. In regia è falso: a scorrere è la colonna (niente scroll nidificati). */
+  innerScroll?: boolean;
 }) {
-  const latest = purchases.slice(0, limit);
+  const latest = purchases.filter((purchase) => !purchase.is_initial_roster).slice(0, limit);
   // L'ultimo acquisto ancora attivo è il primo della lista (ordinata per created_at desc).
   const hero = latest.find((p) => !p.released_at) ?? null;
   const rest = latest.filter((p) => p !== hero);
@@ -266,7 +268,7 @@ export function RecentPurchases({ purchases, participants, myParticipantId = nul
             <h2 className="font-black">Ultimi acquisti</h2>
             <p className="mt-0.5 text-sm text-[var(--muted)]">Storico dell&apos;asta</p>
           </div>
-          <div className="mt-4 max-h-72 space-y-2.5 overflow-y-auto pr-1 sm:max-h-96">
+          <div className={cn("mt-4 space-y-2.5", innerScroll && "max-h-72 overflow-y-auto pr-1 sm:max-h-96")}>
             {rest.map((purchase) => {
               const mine = isMine(purchase);
               return (
@@ -305,17 +307,18 @@ export function RecentPurchases({ purchases, participants, myParticipantId = nul
 }
 
 /** Svincola un giocatore acquistato: mostra il rimborso e chiede conferma. */
-export function ReleaseButton({ playerId, playerName, price, releaseRefund, leagueCode }: {
+export function ReleaseButton({ playerId, playerName, price, quotation, releaseRefund, leagueCode }: {
   playerId: string;
   playerName: string;
   price: number;
+  quotation?: number;
   releaseRefund: ReleaseRefund;
   leagueCode: string;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const { releasePlayer } = useAuctionActions();
-  const refund = refundForRelease(releaseRefund, price);
+  const refund = refundForRelease(releaseRefund, price, quotation);
 
   // Lo svincolo è sempre possibile (nessuna politica lo disabilita).
 

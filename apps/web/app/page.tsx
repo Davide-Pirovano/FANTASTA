@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Gavel, Github } from "lucide-react";
+import { Gavel, Github, Plus, RefreshCw } from "lucide-react";
 import { ActiveLeagues, EmptyLeagues, type OpenLeague } from "@/components/home/active-leagues";
 import { JoinByCode } from "@/components/home/join-by-code";
 import { createClient } from "@/lib/supabase/server";
@@ -83,20 +83,20 @@ export default async function HomePage() {
             Gestisci chiamate, rilanci, crediti e rose da uno stesso posto: tu dirigi dal PC, tutti gli altri giocano dal telefono.
           </p>
 
-          <div className="mt-8 flex w-full flex-wrap items-center gap-3 sm:w-auto">
+          <div className="mt-8 grid w-full max-w-xl grid-cols-1 gap-3 sm:grid-cols-2">
             <Link
               href="/setup"
               aria-label="Crea una nuova asta"
-              className="group pressable relative inline-flex min-h-[4.25rem] flex-1 items-center justify-center gap-4 overflow-hidden rounded-2xl bg-[var(--brand-dark)] pr-4 pl-7 text-lg font-black tracking-tight text-white shadow-[0_24px_50px_-14px_var(--brand)] ring-1 ring-black/5 transition-[transform,box-shadow,background-color] duration-200 hover:-translate-y-0.5 hover:bg-[var(--brand)] hover:shadow-[0_30px_60px_-16px_var(--brand)] sm:flex-none"
+              className="group pressable inline-flex min-h-[4.25rem] items-center justify-center gap-3 rounded-2xl border border-[var(--brand)] bg-[var(--surface)] px-5 text-lg font-black tracking-tight text-[var(--brand-dark)] shadow-[0_18px_40px_-18px_rgba(24,81,70,0.28)] transition-[transform,background-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-[var(--brand-soft)] hover:shadow-[0_22px_42px_-18px_rgba(24,81,70,0.36)]"
             >
-              <span className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-white/20 to-transparent" />
+              <Plus className="size-5" />
               Crea asta
-              <span className="relative grid size-10 shrink-0 place-items-center rounded-xl bg-white/15 transition-transform duration-200 group-hover:translate-x-1 group-hover:bg-white/25">
-                <ArrowRight className="size-5" />
-              </span>
             </Link>
+            <Link href="/repair" className="group pressable inline-flex min-h-[4.25rem] items-center justify-center gap-3 rounded-2xl border border-[var(--brand)] bg-[var(--surface)] px-5 text-lg font-black tracking-tight text-[var(--brand-dark)] shadow-[0_18px_40px_-18px_rgba(24,81,70,0.28)] transition-[transform,background-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-[var(--brand-soft)] hover:shadow-[0_22px_42px_-18px_rgba(24,81,70,0.36)]"><RefreshCw className="size-5" />Asta di riparazione</Link>
 
-            <JoinByCode />
+            <div className="sm:col-span-2">
+              <JoinByCode fullWidth />
+            </div>
           </div>
 
         </div>

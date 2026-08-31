@@ -65,8 +65,12 @@ export type PurchaseRow = {
   player_name: string;
   real_team: string;
   role: PlayerRole;
+  /** Quotazione nel listone al momento dell'acquisto, disponibile negli export recenti. */
+  quotation?: number;
   /** Data di svincolo; null se l'acquisto è ancora attivo in rosa. */
   released_at: string | null;
+  /** Giocatore ereditato dalla rosa iniziale di un'asta di riparazione. */
+  is_initial_roster?: boolean;
 };
 
 export type TeamSummary = {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { ExternalLink, Trash2, Users } from "lucide-react";
+import { ExternalLink, RefreshCw, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { LocalLanClient, type LocalLeagueSummary } from "@fantasta/desktop/client";
 import { Button } from "@/components/ui/button";
@@ -131,6 +131,7 @@ export function LocalActiveLeagues({ baseUrl, sessionId }: { baseUrl: string; se
                     </p>
                   </div>
                 </Link>
+                {league.status === "COMPLETED" ? <Link href={`/local/repair?${new URLSearchParams({server:baseUrl,session:sessionId,source:league.id})}`} className="pressable grid size-11 shrink-0 place-items-center rounded-xl border border-[var(--line)] text-[var(--brand-dark)] hover:bg-[var(--brand-soft)] sm:size-10" aria-label={`Avvia asta di riparazione da ${league.name}`}><RefreshCw className="size-4" /></Link> : null}
                 <button
                   type="button"
                   onClick={() => setConfirmingId(league.id)}

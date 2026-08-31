@@ -19,11 +19,18 @@ export function AuctionTimer({ deadline, auctionId, leagueCode, paused }: {
   leagueCode: string;
   paused?: boolean;
 }) {
-  const [now, setNow] = useState(() => Date.now());
+  // `now` parte da null: il primo render (server e client) è identico e
+  // deterministico, così niente hydration mismatch. Solo dopo il mount parte
+  // l'orologio locale (Date.now() nel render iniziale farebbe divergere
+  // server/client sul valore di urgent/aria-live/classi).
+  const [now, setNow] = useState<number | null>(null);
   const fired = useRef(false);
   const { resolveAuction } = useAuctionActions();
 
   // Tic dell'orologio locale per il conteggio visivo (fermo se in pausa).
+  // Nota: nessun setState sincrono nell'effect — il primo tick dell'intervallo
+  // fa partire l'orologio 200ms dopo il mount (evita cascading renders e
+  // mantiene il primo render server/client identico).
   useEffect(() => {
     if (!deadline || paused) return;
     const id = setInterval(() => setNow(Date.now()), 200);
@@ -52,6 +59,24 @@ export function AuctionTimer({ deadline, auctionId, leagueCode, paused }: {
   }, [deadline, auctionId, leagueCode, paused, resolveAuction]);
 
   if (!deadline) return null;
+
+  // Primo render: nessun valore temporale reale, placeholder neutro identico
+  // su server e client (evita l'hydration mismatch su aria-live/classi).
+  if (now === null) {
+    return (
+      <div
+        role="timer"
+        aria-live="off"
+        aria-atomic="true"
+        className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 sm:px-4 sm:py-3"
+      >
+        <span className="flex items-center gap-2 text-xs font-bold text-[var(--muted)] sm:text-sm">
+          <TimerReset className="size-4 shrink-0 sm:size-5" /> Aggiudicazione automatica tra
+        </span>
+        <span className="numeric shrink-0 text-xl font-black text-[var(--brand-dark)] tabular-nums sm:text-2xl">…</span>
+      </div>
+    );
+  }
 
   if (paused) {
     return (

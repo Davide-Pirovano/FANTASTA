@@ -1,6 +1,6 @@
 {
   "name": "@fantasta/desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Aste di Fantacalcio in locale, con regia desktop e partecipanti collegati dalla LAN",
@@ -29,8 +29,8 @@
     "package": "npm run bundle:server && electron-builder"
   },
   "dependencies": {
-    "@fantasta/contracts": "0.1.0",
-    "@fantasta/domain": "0.1.0",
+    "@fantasta/contracts": "0.2.0",
+    "@fantasta/domain": "0.2.0",
     "ws": "^8.21.3"
   },
   "devDependencies": {
@@ -48,26 +48,57 @@
     "asar": true,
     "compression": "normal",
     "copyright": "Copyright © 2026 Davide Pirovano",
-    "directories": { "output": "release" },
-    "files": ["electron/**/*", "dist/**/*", "package.json"],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "dist/**/*",
+      "package.json"
+    ],
     "extraResources": [
-      { "from": "dist/local-server.cjs", "to": "local-server.cjs" },
-      { "from": "../web/.next/standalone/apps", "to": "web/apps" },
-      { "from": "../web/.next/standalone/packages", "to": "web/packages" },
-      { "from": "../web/.next/standalone/package.json", "to": "web/package.json" },
-      { "from": "../web/.next/standalone/node_modules", "to": "web/node_modules" },
-      { "from": "../web/.next/static", "to": "web/apps/web/.next/static" },
-      { "from": "../web/public", "to": "web/apps/web/public" }
+      {
+        "from": "dist/local-server.cjs",
+        "to": "local-server.cjs"
+      },
+      {
+        "from": "../web/.next/standalone/apps",
+        "to": "web/apps"
+      },
+      {
+        "from": "../web/.next/standalone/packages",
+        "to": "web/packages"
+      },
+      {
+        "from": "../web/.next/standalone/package.json",
+        "to": "web/package.json"
+      },
+      {
+        "from": "../web/.next/standalone/node_modules",
+        "to": "web/node_modules"
+      },
+      {
+        "from": "../web/.next/static",
+        "to": "web/apps/web/.next/static"
+      },
+      {
+        "from": "../web/public",
+        "to": "web/apps/web/public"
+      }
     ],
     "artifactName": "Fantasta-${arch}.${ext}",
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "icon": "build/icon.icns",
       "category": "public.app-category.sports",
       "hardenedRuntime": true
     },
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "build/icon.ico",
       "legalTrademarks": "Fantasta"
     },

@@ -7,6 +7,7 @@ import type { SetupInput } from "@fantasta/contracts";
 import { openLocalDatabase } from "./database.js";
 import { LeagueStore, LocalStoreError } from "./league-store.js";
 import { createLocalBackup } from "./backup.js";
+import { MIGRATIONS } from "./migrations.js";
 
 const setup: SetupInput = {
   leagueName: "Lega Desktop",
@@ -43,7 +44,7 @@ test("applica lo schema e crea atomicamente lega, regole e listone", () => {
     });
     assert.equal((database.prepare("SELECT COUNT(*) AS count FROM league_rules").get() as { count: number }).count, 1);
     assert.equal((database.prepare("SELECT COUNT(*) AS count FROM players").get() as { count: number }).count, 2);
-    assert.equal((database.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get() as { count: number }).count, 1);
+    assert.equal((database.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get() as { count: number }).count, MIGRATIONS.length);
   } finally {
     database.close();
   }
@@ -177,7 +178,7 @@ test("migrazioni e dati persistono dopo la riapertura del file", () => {
       assert.equal(reopenedStore.getLeagueOverview("DISK12")?.name, "Lega Desktop");
       assert.equal(
         (reopenedDatabase.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get() as { count: number }).count,
-        1,
+        MIGRATIONS.length,
       );
     } finally {
       reopenedDatabase.close();
@@ -207,6 +208,41 @@ test("crea un backup SQLite consistente del database locale", async () => {
     database.close();
     rmSync(temporaryDirectory, { recursive: true, force: true });
   }
+});
+
+test("crea una riparazione da export, assegna le rose e consente gli svincoli in lobby", () => {
+  const database = openLocalDatabase(":memory:");
+  try {
+    const store = new LeagueStore(database);
+    store.createSession("admin-token", "admin-session");
+    store.createSession("one-token", "one-session");
+    store.createSession("two-token", "two-session");
+    const league = store.createRepairAuction("admin-session", {
+      source: { kind: "excel", teams: [
+        { teamName: "Team Uno", initialBudget: 500, remainingBudget: 20, purchases: [
+          { name: "Portiere Uno", realTeam: "Roma", role: "P", price: 10, quotation: 8 },
+          { name: "Partito Estero", realTeam: "Estero", role: "P", price: 7, quotation: null },
+        ] },
+        { teamName: "Team Due", initialBudget: 500, remainingBudget: 30, purchases: [
+          { name: "Portiere Due", realTeam: "Lazio", role: "P", price: 12, quotation: 9 },
+        ] },
+      ] },
+      leagueName: "Riparazione Desktop", initialBudget: 500, minBid: 1,
+      auctionTimerSeconds: 15, asteMode: "per_ruoli", releaseRefund: "half",
+      movedAwayRefund: "quotation", creditMode: "carry_over", players: setup.players,
+    }, "REP123");
+    const one = store.joinLeague("one-session", { inviteCode: "REP123", participantName: "Mario", teamName: "Team Uno" });
+    assert.equal(one.budgetRemaining, 27);
+    assert.throws(() => store.setLeagueStatus("admin-session", league.id, "LIVE"), (error) => error instanceof LocalStoreError && error.code === "NO_PARTICIPANTS");
+    store.joinLeague("two-session", { inviteCode: "REP123", participantName: "Luigi", teamName: "Team Due" });
+    const state = store.getLeagueState("REP123", "one-session");
+    assert.equal(state?.teams.find((team) => team.participant.id === one.id)?.rosterSize, 1);
+    const owned = state?.teams.find((team) => team.participant.id === one.id)?.roster[0];
+    assert.ok(owned);
+    store.releasePlayer("one-session", owned.player_id);
+    assert.equal(store.getLeagueState("REP123", "one-session")?.me?.budget_remaining, 32);
+    assert.doesNotThrow(() => store.setLeagueStatus("admin-session", league.id, "LIVE"));
+  } finally { database.close(); }
 });
 
 test("esegue il flusso asta locale con pausa, rilancio, auto-award e svincolo", () => {

@@ -1,0 +1,2 @@
+import { LocalRepairShell } from "@/components/setup/local-repair-shell";
+export default async function LocalRepairPage({ searchParams }: { searchParams: Promise<{ server?:string; session?:string; source?:string }> }) { const params=await searchParams; return params.server && params.session ? <LocalRepairShell baseUrl={params.server} sessionId={params.session} initialSourceId={params.source} /> : <main className="grid min-h-dvh place-items-center">Configurazione desktop mancante.</main>; }

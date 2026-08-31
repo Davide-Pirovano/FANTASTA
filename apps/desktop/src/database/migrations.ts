@@ -39,7 +39,7 @@ export const MIGRATIONS: readonly Migration[] = [
         midfielder_slots INTEGER NOT NULL CHECK (midfielder_slots >= 0),
         attacker_slots INTEGER NOT NULL CHECK (attacker_slots >= 0),
         auction_timer_seconds INTEGER NOT NULL DEFAULT 15 CHECK (auction_timer_seconds BETWEEN 1 AND 60),
-        release_refund TEXT NOT NULL DEFAULT 'half' CHECK (release_refund IN ('full', 'half', 'one', 'zero')),
+        release_refund TEXT NOT NULL DEFAULT 'half' CHECK (release_refund IN ('full', 'half', 'one', 'zero', 'quotation')),
         CHECK (goalkeeper_slots + defender_slots + midfielder_slots + attacker_slots > 0)
       ) STRICT;
 
@@ -134,5 +134,52 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX participant_transfers_old_session_idx
         ON participant_transfers (league_id, old_session_id, moved_at DESC);
     `,
+  },
+  {
+    version: 2,
+    name: "repair_auction_link",
+    sql: `ALTER TABLE leagues ADD COLUMN repair_of_league_id TEXT REFERENCES leagues(id) ON DELETE SET NULL; CREATE INDEX leagues_repair_of_idx ON leagues(repair_of_league_id);`,
+  },
+  {
+    version: 3,
+    name: "repair_imported_teams",
+    sql: `
+      CREATE TABLE repair_imported_teams (
+        id TEXT PRIMARY KEY,
+        league_id TEXT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+        team_name TEXT NOT NULL COLLATE NOCASE,
+        budget_remaining INTEGER NOT NULL CHECK (budget_remaining >= 0),
+        turn_order INTEGER NOT NULL CHECK (turn_order >= 0),
+        roster TEXT NOT NULL DEFAULT '[]',
+        claimed_participant_id TEXT REFERENCES participants(id) ON DELETE SET NULL,
+        UNIQUE (league_id, team_name),
+        UNIQUE (league_id, turn_order)
+      ) STRICT;
+      CREATE INDEX repair_imported_teams_league_idx ON repair_imported_teams(league_id);
+    `,
+  },
+  {
+    version: 4,
+    name: "release_refund_quotation",
+    sql: `
+      ALTER TABLE league_rules RENAME TO league_rules_old;
+      CREATE TABLE league_rules (
+        league_id TEXT PRIMARY KEY REFERENCES leagues(id) ON DELETE CASCADE,
+        goalkeeper_slots INTEGER NOT NULL CHECK (goalkeeper_slots >= 0),
+        defender_slots INTEGER NOT NULL CHECK (defender_slots >= 0),
+        midfielder_slots INTEGER NOT NULL CHECK (midfielder_slots >= 0),
+        attacker_slots INTEGER NOT NULL CHECK (attacker_slots >= 0),
+        auction_timer_seconds INTEGER NOT NULL DEFAULT 15 CHECK (auction_timer_seconds BETWEEN 1 AND 60),
+        release_refund TEXT NOT NULL DEFAULT 'half' CHECK (release_refund IN ('full','half','one','zero','quotation')),
+        CHECK (goalkeeper_slots + defender_slots + midfielder_slots + attacker_slots > 0)
+      ) STRICT;
+      INSERT INTO league_rules SELECT * FROM league_rules_old;
+      DROP TABLE league_rules_old;
+    `,
+  },
+  {
+    version: 5,
+    name: "repair_initial_roster_marker",
+    sql: "ALTER TABLE purchases ADD COLUMN is_initial_roster INTEGER NOT NULL DEFAULT 0;",
   },
 ];

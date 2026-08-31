@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Gavel, Users } from "lucide-react";
+import { Gavel, Plus, RefreshCw } from "lucide-react";
 import { LocalActiveLeagues } from "@/components/home/local-active-leagues";
 import { LocalJoinByInviteLink } from "@/components/home/local-join-by-invite-link";
 
@@ -57,20 +57,20 @@ export default async function LocalHomePage({ searchParams }: {
             direttamente alla tua rete locale, senza server.
           </p>
 
-          <div className="mt-8 flex w-full flex-wrap items-center gap-3 sm:w-auto">
+          <div className="mt-8 grid w-full max-w-xl grid-cols-1 gap-3 sm:grid-cols-2">
             <Link
               href={setupHref ?? "/local/setup"}
               aria-label="Crea una nuova asta"
-              className="group pressable relative inline-flex min-h-[4.25rem] flex-1 items-center justify-center gap-4 overflow-hidden rounded-2xl bg-[var(--brand-dark)] pr-4 pl-7 text-lg font-black tracking-tight text-white shadow-[0_24px_50px_-14px_var(--brand)] ring-1 ring-black/5 transition-[transform,box-shadow,background-color] duration-200 hover:-translate-y-0.5 hover:bg-[var(--brand)] hover:shadow-[0_30px_60px_-16px_var(--brand)] sm:flex-none"
+              className={`group pressable inline-flex min-h-[4.25rem] items-center justify-center gap-3 rounded-2xl border border-[var(--brand)] bg-[var(--surface)] px-5 text-lg font-black tracking-tight text-[var(--brand-dark)] shadow-[0_18px_40px_-18px_rgba(24,81,70,0.28)] transition-[transform,background-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-[var(--brand-soft)] hover:shadow-[0_22px_42px_-18px_rgba(24,81,70,0.36)]${server && session ? "" : " sm:col-span-2"}`}
             >
-              <span className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-white/20 to-transparent" />
+              <Plus className="size-5" />
               Crea asta
-              <span className="relative grid size-10 shrink-0 place-items-center rounded-xl bg-white/15 transition-transform duration-200 group-hover:translate-x-1 group-hover:bg-white/25">
-                <ArrowRight className="size-5" />
-              </span>
             </Link>
+            {server && session ? <Link href={`/local/repair?${new URLSearchParams({ server, session }).toString()}`} className="group pressable inline-flex min-h-[4.25rem] items-center justify-center gap-3 rounded-2xl border border-[var(--brand)] bg-[var(--surface)] px-5 text-lg font-black tracking-tight text-[var(--brand-dark)] shadow-[0_18px_40px_-18px_rgba(24,81,70,0.28)] transition-[transform,background-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-[var(--brand-soft)] hover:shadow-[0_22px_42px_-18px_rgba(24,81,70,0.36)]"><RefreshCw className="size-5" />Asta di riparazione</Link> : null}
 
-            <LocalJoinByInviteLink />
+            <div className="sm:col-span-2">
+              <LocalJoinByInviteLink fullWidth />
+            </div>
           </div>
         </div>
 
@@ -85,7 +85,7 @@ export default async function LocalHomePage({ searchParams }: {
             ) : (
               <div className="flex w-full flex-col items-center gap-5 rounded-3xl border-2 border-dashed border-[var(--line)] bg-white/40 px-6 py-8 text-center backdrop-blur">
                 <span className="grid size-14 place-items-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand-dark)]">
-                  <Users className="size-7" />
+                  <Plus className="size-7" />
                 </span>
                 <div>
                   <p className="text-base font-black text-[var(--ink)]">Nessuna asta ancora</p>

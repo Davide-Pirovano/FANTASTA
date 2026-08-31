@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Hourglass, PauseCircle, Users } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -90,9 +90,7 @@ export function ParticipantView({ state, inviteCode, realtimeEnabled, teamMovedE
               <span className="numeric text-[var(--ink)]">{code}</span>
             </span>
             {myTeam && status !== "COMPLETED" ? (
-              <span className="rounded-xl bg-[var(--brand-soft)] px-3 py-1.5 text-xs font-black text-[var(--brand-dark)] numeric">
-                {myTeam.participant.budget_remaining} cr
-              </span>
+              <AnimatedCredits value={myTeam.participant.budget_remaining} />
             ) : null}
           </div>
         </div>
@@ -131,6 +129,16 @@ export function ParticipantView({ state, inviteCode, realtimeEnabled, teamMovedE
           <LobbyWait state={state} />
         ) : null}
 
+        {status === "LOBBY" && myTeam && myTeam.rosterSize > 0 ? (
+          <section className="mt-4 space-y-3">
+            <div>
+              <h2 className="text-lg font-black tracking-tight">Prepara la rosa</h2>
+              <p className="text-sm text-[var(--muted)]">Svincola ora i giocatori che non vuoi portare all&apos;asta di riparazione.</p>
+            </div>
+            <MyRoster team={myTeam} releaseRefund={state.releaseRefund} leagueCode={code} />
+          </section>
+        ) : null}
+
         {status === "PAUSED" && myTeam ? (
           <div className="mb-4 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">
             <PauseCircle className="size-5 shrink-0" /> Asta messa in pausa dall&apos;admin. Riceverai un segnale alla ripresa.
@@ -139,7 +147,7 @@ export function ParticipantView({ state, inviteCode, realtimeEnabled, teamMovedE
 
         {(status === "LIVE" || status === "PAUSED") && myTeam ? (
           <div className="space-y-3 sm:space-y-5">
-            <div id={`participant-panel-${tab}`} role="tabpanel" aria-label={TABS.find((item) => item.id === tab)?.label}>
+            <div id={`participant-panel-${tab}`} role="tabpanel" aria-label={TABS.find((item) => item.id === tab)?.label} className="space-y-3 sm:space-y-5">
             {tab === "asta" ? (
               state.activeAuction ? (
                 <>
@@ -282,7 +290,7 @@ function MyRoster({ team, releaseRefund, leagueCode }: {
           {[...team.roster].reverse().map((item) => (
             <RosterRow
               key={item.id}
-              item={{ player_id: item.player_id, price: item.price, player_name: item.player_name, real_team: item.real_team }}
+              item={{ player_id: item.player_id, price: item.price, quotation: item.quotation, player_name: item.player_name, real_team: item.real_team }}
               role={item.role}
               releaseRefund={releaseRefund}
               leagueCode={leagueCode}
@@ -295,7 +303,7 @@ function MyRoster({ team, releaseRefund, leagueCode }: {
 }
 
 function RosterRow({ item, role, releaseRefund, leagueCode }: {
-  item: { player_id: string; price: number; player_name: string; real_team: string };
+  item: { player_id: string; price: number; quotation?: number; player_name: string; real_team: string };
   role: PlayerRole;
   releaseRefund: ReleaseRefund;
   leagueCode: string;
@@ -306,8 +314,40 @@ function RosterRow({ item, role, releaseRefund, leagueCode }: {
       <span className="min-w-0 flex-1 truncate text-sm font-bold">{item.player_name}</span>
       <span className="max-w-[5.5rem] shrink truncate text-xs text-[var(--muted)]">{item.real_team}</span>
       <span className="numeric shrink-0 text-sm font-black">{item.price}</span>
-      <ReleaseButton playerId={item.player_id} playerName={item.player_name} price={item.price} releaseRefund={releaseRefund} leagueCode={leagueCode} />
+      <ReleaseButton playerId={item.player_id} playerName={item.player_name} price={item.price} quotation={item.quotation} releaseRefund={releaseRefund} leagueCode={leagueCode} />
     </div>
+  );
+}
+
+function AnimatedCredits({ value }: { value: number }) {
+  // Flash rosso→verde quando i crediti scalano (es. dopo un'aggiudicazione).
+  const [flash, setFlash] = useState(false);
+  const previousRef = useRef(value);
+
+  useEffect(() => {
+    const previous = previousRef.current;
+    previousRef.current = value;
+    // Ogni rimezza riga per valore si ripete: scatta solo quando il budget cala.
+    if (value < previous) {
+      setFlash(true);
+      const timer = setTimeout(() => setFlash(false), 700);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [value]);
+
+  return (
+    <span
+      className={cn(
+        "rounded-xl px-3.5 py-2 text-xl font-black transition-colors duration-500",
+        flash
+          ? "bg-red-100 text-red-600"
+          : "bg-[var(--brand-soft)] text-[var(--brand-dark)]",
+        "numeric"
+      )}
+    >
+      {value}
+    </span>
   );
 }
 

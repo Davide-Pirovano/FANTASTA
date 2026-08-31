@@ -106,16 +106,18 @@ export function BidControls({ auction, me, slots, ownedByRole, minBid, leagueCod
       <div className="mt-3 grid grid-cols-3 gap-2 sm:mt-4 sm:gap-3">
         {INCREMENTS.map((increment) => {
           const amount = auction.current_bid + increment;
+          const remainingIfWon = me.budget_remaining - amount;
+          const disabled = pending || amount > effectiveLimit;
           return (
             <button
               key={increment}
-              disabled={pending || amount > effectiveLimit}
+              disabled={disabled}
               onClick={() => bid(amount)}
               aria-label={`Rilancia a ${amount} crediti`}
-              className="pressable min-h-14 rounded-2xl bg-[var(--ink)] font-black text-white hover:bg-[var(--brand-dark)] disabled:pointer-events-none disabled:opacity-40 sm:min-h-20"
+              className="pressable flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl bg-[var(--ink)] font-black text-white hover:bg-[var(--brand-dark)] disabled:pointer-events-none disabled:opacity-40 sm:min-h-20"
             >
-              <span className="text-lg sm:text-xl">{amount}</span>
-              <span className="ml-1 text-xs opacity-70">(+{increment})</span>
+              <span className="text-lg leading-none sm:text-xl">{amount}</span>
+              <span className="mt-1 text-[11px] font-bold leading-none opacity-75">{disabled ? "—" : `restano ${remainingIfWon}`}</span>
             </button>
           );
         })}
@@ -141,6 +143,21 @@ export function BidControls({ auction, me, slots, ownedByRole, minBid, leagueCod
         />
         <Button type="submit" variant="secondary" disabled={pending || !custom}>Offri</Button>
       </form>
+
+      {(() => {
+        const value = Number(custom);
+        const valid =
+          custom !== "" &&
+          Number.isInteger(value) &&
+          value > auction.current_bid &&
+          value <= effectiveLimit;
+        if (!valid) return null;
+        return (
+          <p className="mt-2 text-center text-sm font-black text-red-600">
+            Crediti rimanenti: <span className="numeric">{me.budget_remaining - value}</span> crediti
+          </p>
+        );
+      })()}
 
       <div className="mt-3 hidden items-start gap-2 rounded-xl bg-[var(--brand-soft)] px-2.5 py-2 text-[11px] leading-4 text-[var(--brand-dark)] sm:mt-4 sm:flex sm:px-3 sm:py-2.5 sm:text-xs sm:leading-5">
         <ShieldCheck className="mt-0.5 size-3.5 shrink-0 sm:size-4" />

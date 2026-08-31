@@ -16,6 +16,7 @@ import {
   setLeaguePhaseCommandSchema,
   setLeagueStatusCommandSchema,
   setupInputSchema,
+  repairAuctionInputSchema,
   type SetupInput,
 } from "@fantasta/contracts";
 import { openLocalDatabase, LeagueStore, LocalStoreError } from "./database/index.js";
@@ -148,6 +149,10 @@ export class LocalLanServer {
           ? (input as Record<string, unknown>).inviteCode as string
           : undefined;
         return this.store.createLeague(sessionId, parsed, inviteCode);
+      }
+      case "createRepairAuction": {
+        if (!sessionId) throw new LocalStoreError("SESSION_NOT_FOUND", "Header x-session-id richiesto");
+        return this.store.createRepairAuction(sessionId, repairAuctionInputSchema.parse(input));
       }
       case "joinLeague": return this.store.joinLeague(sessionId ?? "", joinLeagueCommandSchema.parse(input));
       case "rejoinLeague": return this.store.rejoinLeague(sessionId ?? "", rejoinLeagueCommandSchema.parse(input));

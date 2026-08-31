@@ -4,14 +4,15 @@ export type PlayerRole = (typeof ROLES)[number];
 export type RoleSlots = Record<PlayerRole, number>;
 
 /** Politica di rimborso allo svincolo (allineata a league_rules.release_refund). */
-export const RELEASE_REFUNDS = ["full", "half", "one", "zero"] as const;
+export const RELEASE_REFUNDS = ["full", "half", "one", "zero", "quotation"] as const;
 export type ReleaseRefund = (typeof RELEASE_REFUNDS)[number];
 
 /** Crediti restituiti svincolando un giocatore acquistato a un certo prezzo. */
-export function refundForRelease(refund: ReleaseRefund, price: number) {
+export function refundForRelease(refund: ReleaseRefund, price: number, quotation = price) {
   if (refund === "zero") return 0;
   if (refund === "full") return price;
   if (refund === "one") return 1;
+  if (refund === "quotation") return Math.max(0, quotation);
   return Math.max(1, Math.ceil(price / 2));
 }
 

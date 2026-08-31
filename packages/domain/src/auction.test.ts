@@ -16,6 +16,10 @@ test("calcola i rimborsi come la RPC release_player", () => {
   assert.equal(refundForRelease("zero", 15), 0);
 });
 
+test("rimborsa la quotazione aggiornata quando configurato", () => {
+  assert.equal(refundForRelease("quotation", 25, 13), 13);
+});
+
 test("riserva il minimo necessario per tutti gli slot rimanenti", () => {
   assert.equal(maxBid(100, 5, 1), 96);
   assert.equal(maxBid(100, 5, 3), 88);

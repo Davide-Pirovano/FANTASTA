@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowRight, KeyRound, Link2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { ArrowRight, KeyRound, Link2, X } from "lucide-react";
 import { toast } from "sonner";
 
 /**
@@ -29,9 +30,18 @@ function parseInviteLink(raw: string): { code: string; server: string } | null {
   return { code: match[1].toUpperCase(), server };
 }
 
-export function LocalJoinByInviteLink() {
+export function LocalJoinByInviteLink({ fullWidth = false }: { fullWidth?: boolean }) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -46,21 +56,30 @@ export function LocalJoinByInviteLink() {
   }
 
   return (
-    <div className="w-full sm:w-auto">
+    <div className={fullWidth ? "w-full" : "w-full sm:w-auto"}>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-controls="join-by-invite-panel"
-        className="group pressable inline-flex min-h-[4.25rem] w-full items-center justify-center gap-3 rounded-2xl border-2 border-[var(--brand)] bg-[var(--surface)] px-6 text-lg font-black tracking-tight text-[var(--brand-dark)] shadow-[0_18px_40px_-18px_rgba(24,81,70,0.35)] transition-[transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-[var(--brand-soft)] sm:w-auto"
+        className={`group pressable inline-flex min-h-[4.25rem] w-full items-center justify-center gap-3 rounded-2xl border border-[var(--brand)] bg-[var(--surface)] px-5 text-lg font-black tracking-tight text-[var(--brand-dark)] shadow-[0_18px_40px_-18px_rgba(24,81,70,0.28)] transition-[transform,background-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-[var(--brand-soft)] hover:shadow-[0_22px_42px_-18px_rgba(24,81,70,0.36)]${fullWidth ? "" : " sm:w-auto"}`}
       >
         <KeyRound className="size-6 transition-transform duration-200 group-hover:rotate-12" />
         Accedi alla lega
       </button>
 
-      {open ? (
-        <div id="join-by-invite-panel" className="mt-3 w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)]/90 p-4 shadow-[0_18px_40px_-24px_rgba(24,51,40,0.45)] backdrop-blur sm:max-w-md">
-          <form onSubmit={submit} className="space-y-3">
+      {open ? createPortal(
+        <div className="fixed inset-0 z-50 grid place-items-center bg-[rgba(18,39,30,0.28)] px-5 py-8 backdrop-blur-sm" onMouseDown={() => setOpen(false)}>
+          <div id="join-by-invite-panel" role="dialog" aria-modal="true" aria-labelledby="join-by-invite-title" className="w-full max-w-lg rounded-3xl border border-[var(--line)] bg-[var(--surface)] p-6 shadow-[0_32px_80px_-24px_rgba(16,45,33,0.55)] sm:p-7" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="grid size-11 place-items-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand-dark)]"><Link2 className="size-5" /></span>
+                <h2 id="join-by-invite-title" className="mt-4 text-2xl font-black tracking-tight text-[var(--ink)]">Accedi alla lega</h2>
+                <p className="mt-1 text-sm leading-6 text-[var(--muted)]">Incolla il link di invito condiviso dall&apos;organizzatore.</p>
+              </div>
+              <button type="button" onClick={() => setOpen(false)} className="pressable grid size-10 place-items-center rounded-xl text-[var(--muted)] transition-colors hover:bg-[var(--brand-soft)] hover:text-[var(--brand-dark)]" aria-label="Chiudi"><X className="size-5" /></button>
+            </div>
+            <form onSubmit={submit} className="mt-6 space-y-3">
             <label className="block">
               <span className="text-sm font-black">Link di invito</span>
               <input
@@ -80,12 +99,14 @@ export function LocalJoinByInviteLink() {
               Continua
               <ArrowRight className="size-4" />
             </button>
-            <p className="flex items-start gap-1.5 text-center text-xs leading-5 text-[var(--muted)]">
+            <p className="flex items-start gap-1.5 text-xs leading-5 text-[var(--muted)]">
               <Link2 className="mt-0.5 size-3.5 shrink-0" />
               Il link te lo fornisce l&apos;organizzatore dell&apos;asta (QR o &quot;Copia link&quot; dalla regia). Contiene il codice lega e l&apos;indirizzo del suo PC sulla rete.
             </p>
-          </form>
-        </div>
+            </form>
+          </div>
+        </div>,
+        document.body,
       ) : null}
     </div>
   );

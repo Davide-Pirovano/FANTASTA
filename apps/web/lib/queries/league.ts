@@ -72,7 +72,7 @@ export async function buildLeagueState(
       .maybeSingle(),
     supabase
       .from("purchases")
-      .select(`id, price, created_at, participant_id, player_id, released_at, players(role, name, real_team)`)
+      .select(`id, price, created_at, participant_id, player_id, released_at, is_initial_roster, players(role, name, real_team, quotation)`)
       .eq("league_id", leagueId)
       .order("created_at", { ascending: false }),
     supabase
@@ -96,7 +96,8 @@ export async function buildLeagueState(
     participant_id: string;
     player_id: string;
     released_at: string | null;
-    players: { role: string; name: string; real_team: string } | null;
+    is_initial_roster?: boolean;
+    players: { role: string; name: string; real_team: string; quotation: number } | null;
   }>;
   const purchases: PurchaseRow[] = rawPurchases.flatMap((row) => {
     const player = row.players;
@@ -111,7 +112,9 @@ export async function buildLeagueState(
         player_name: player.name,
         real_team: player.real_team,
         role: player.role as PurchaseRow["role"],
+        quotation: player.quotation,
         released_at: row.released_at ?? null,
+        is_initial_roster: row.is_initial_roster ?? false,
       },
     ];
   });
