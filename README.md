@@ -113,7 +113,7 @@ Vuoi la **vera app desktop** ma senza scaricare il .dmg/.exe? Si installa da npm
 npx fantasta
 ```
 
-> Al primo avvio npm scarica il pacchetto insieme al binario Electron (~120 MB, solo la prima volta). Poi si apre la **vera finestra dell'app**: server SQLite/LAN su porta `47821`, renderer su `47822`, partecipanti dal telefono come sempre (QR/link). Dati e sessioni persistono in `~/Library/Application Support/Fantasta` (macOS) / `~/.fantasta/` (altre piattaforme). `Ctrl+C` nel terminale chiude l'app.
+> Al primo avvio npm scarica il pacchetto insieme al binario Electron (~120 MB, solo la prima volta). Poi si apre la **vera finestra dell'app**: server SQLite/LAN su porta `47821`, renderer su `47822`, partecipanti dal telefono come sempre (QR/link). Su macOS la prima volta viene preparata una vera `Fantasta.app` (icona e nome corretti nel Dock, nessuna icona "exec" né quella generica di Electron) in `~/.fantasta/`. Dati e sessioni persistono in `~/.fantasta/` (`FANTASTA_DATA_DIR` per cambiare cartella). Il terminale torna subito libero: per fermare l'app chiudi la finestra (i log sono in `~/.fantasta/desktop.log`).
 
 **Perché niente avvisi di sicurezza?** L'avviso *"app scaricata da internet"* (Gatekeeper su macOS, SmartScreen su Windows) compare solo sui file scaricati dal **browser**, che macOS/Windows marcano come "quarantena". npm scarica i pacchetti con le sue librerie, **senza quel flag**: il binario Electron incluso è firmato da GitHub e non viene mai segnalato come scaricato dal browser. L'app quindi parte sempre senza dialoghi, anche su un computer che non l'ha mai vista. (Gli installer `.dmg`/`.exe` della sezione sopra invece arrivano dal browser e possono chiedere l'autorizzazione la prima volta se non firmati.)
 

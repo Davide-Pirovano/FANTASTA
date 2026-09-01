@@ -1,6 +1,6 @@
 {
   "name": "fantasta",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Asta di Fantacalcio in LAN senza server: avvia la regia come vera app desktop e i partecipanti si collegano dal telefono. Nessuna installazione richiesta.",
   "license": "MIT",
   "type": "commonjs",

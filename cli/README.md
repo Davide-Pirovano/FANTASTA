@@ -13,12 +13,17 @@ pacchetto è firmato da GitHub, quindi non c'è Gatekeeper da aggirare.
 
 ## Cosa succede
 
-- Si apre la **finestra dell'app desktop** (regia);
+- Al **primo avvio** su macOS viene preparata una vera **Fantasta.app** (nome,
+  icona e identificatore corretti) dentro `~/.fantasta/` — pochi secondi, una
+  volta sola;
+- si apre la **finestra dell'app desktop** (regia) con l'icona e il nome di
+  Fantasta nel Dock;
 - si avvia il **server SQLite/LAN** locale (porta `47821`);
 - si avvia il **renderer** della regia (porta `47822`), raggiungibile anche dal
   browser dei partecipanti;
-- **il terminale resta attivo** mentre l'asta è in corso: chiudilo con `Ctrl+C`
-  per fermare tutto e disconnettere i partecipanti (oppure chiudi la finestra).
+- il **terminale torna subito libero**: l'app gira da sola, chiudi la **finestra**
+  per fermare tutto e disconnettere i partecipanti (i log finiscono in
+  `~/.fantasta/desktop.log`).
 
 I partecipanti si collegano con il **QR code** mostrato durante la creazione
 della lega (o col link) e seguono l'asta dal telefono. Serve una sola
@@ -39,8 +44,9 @@ npx fantasta --browser
 
 ## Dove vengono salvati i dati
 
-- Finestra desktop: `~/Library/Application Support/Fantasta/fantasta.db` (macOS),
-  `%APPDATA%/Fantasta/fantasta.db` (Windows), `~/.config/Fantasta/fantasta.db` (Linux).
+- Tutti i dati (database, sessione admin, log e l'app `Fantasta.app` su macOS)
+  stanno in `~/.fantasta/` (`FANTASTA_DATA_DIR` per cambiare cartella).
+- Finestra desktop: `fantasta.db` in `~/.fantasta/` (o `FANTASTA_DATABASE_PATH`).
 - Modalità browser / sessioni: `~/.fantasta/` (`fantasta.db`, `admin-session.txt`).
 
 ## Opzioni (variabili d'ambiente)
@@ -67,9 +73,12 @@ L'"app desktop" di Fantasta è in realtà **due processi Node** (server LAN e
 renderer) avvolti da **Electron**. Il pacchetto npm include tutto e lancia il
 binario Electron ufficiale, firmato da GitHub: per questo non c'è alcun
 **avviso di sicurezza** all'apertura su macOS, Windows o Linux (niente
-Gatekeeper da aggirare). Se preferisci una finestra "installata" a sistema,
-la distribuzione installer (`.dmg`/`.exe`) resta scaricabile dalle **GitHub
-Releases** del progetto.
+Gatekeeper da aggirare). Su macOS al primo avvio il pacchetto assembla una
+vera `Fantasta.app` (copia del dist Electron con nome e icona corretti): nel
+Dock compare **solo Fantasta**, senza l'icona "exec" né quella generica di
+Electron. Se preferisci una finestra "installata" a sistema, la distribuzione
+installer (`.dmg`/`.exe`) resta scaricabile dalle **GitHub Releases** del
+progetto.
 
 ## Sviluppo in questo repo
 
