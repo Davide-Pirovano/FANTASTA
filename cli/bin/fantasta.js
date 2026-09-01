@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-// Launcher Fantasta senza Electron.
+// Launcher "fantasta".
 //
-// L'"app desktop" è, di fatto, due processi Node già inclusi come risorse:
-//   - resources/local-server.cjs  → server SQLite + WebSocket LAN (porta 47821)
-//   - resources/web/**            → renderer Next standalone (porta 47822)
+// Di default avvia la VERA app desktop: avvia Electron con le risorse incluse
+// (resources/app), che apre la finestra della regia e serve server SQLite/LAN
+// (porta 47821) e renderer (porta 47822). Il binario Electron è firmato da
+// GitHub, quindi NIENTE avviso Gatekeeper all'apertura.
 //
-// Questo bin li avvia, crea/riprende la sessione admin, apre la regia nel
-// browser di default e resta in esecuzione finché il segnale non lo ferma.
-// Niente .app, niente binari nativi da firmare: Gatekeeper non ha nulla da
-// bloccare su macOS, Windows o Linux.
+// Con `--browser` (o FANTASTA_BROWSER=1) usa la modalità legacy senza Electron:
+// avvia i due processi Node (local-server.cjs + renderer standalone) e apre la
+// regia nel browser di default. Utile su macchine senza Electron installato.
 "use strict";
 
 const { spawn } = require("node:child_process");
@@ -19,6 +19,7 @@ const path = require("node:path");
 const resourcesRoot = path.resolve(__dirname, "..", "resources");
 const serverEntry = path.join(resourcesRoot, "local-server.cjs");
 const rendererEntry = path.join(resourcesRoot, "web", "apps", "web", "server.js");
+const appDir = path.join(resourcesRoot, "app");
 
 const HOST = "0.0.0.0";
 const LOCAL_PORT = process.env.FANTASTA_PORT ?? "47821";
@@ -30,6 +31,8 @@ const DATA_DIR = process.env.FANTASTA_DATA_DIR ?? path.join(homedir(), ".fantast
 const DB_PATH = process.env.FANTASTA_DATABASE_PATH ?? path.join(DATA_DIR, "fantasta.db");
 const SESSION_FILE = process.env.FANTASTA_SESSION_FILE ?? path.join(DATA_DIR, "admin-session.txt");
 
+const browserMode = process.argv.includes("--browser") || process.env.FANTASTA_BROWSER === "1";
+
 let running = [];
 
 function log(message) {
@@ -40,16 +43,16 @@ function error(message) {
   console.error(`[fantasta] Errore: ${message}`);
 }
 
-async function waitForHealth(url, label, timeoutMs = 20_000) {
+async function waitForHealth(url, label, healthPath = "/api/health", timeoutMs = 30_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(new URL("/api/health", url));
+      const response = await fetch(new URL(healthPath, url));
       if (response.ok) return;
     } catch {
       // il processo si sta ancora avviando
     }
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error(`Il processo ${label} non ha risposto in tempo`);
 }
@@ -112,11 +115,20 @@ function openBrowser(url) {
   }
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function electronBinary() {
+  try {
+    // Quando eseguito da Node, `require("electron")` restituisce il percorso
+    // del binario Electron (non il modulo). Se electron non è installato il
+    // require fallisce e si cade nella modalità browser.
+    const electron = require("electron");
+    return typeof electron === "string" ? electron : null;
+  } catch {
+    return null;
+  }
 }
 
-async function main() {
+async function runBrowserMode() {
+  log("Modalità browser (senza finestra).");
   startServer();
 
   let errorLogged = false;
@@ -135,9 +147,10 @@ async function main() {
     await waitForHealth(LOCAL_URL, "server locale");
     log("Server locale pronto");
     const sessionId = await resolveAdminSession();
-    log(`Sessione admin ${errorLogged ? "" : "pronta"}`);
+    log("Sessione admin pronta");
     startRenderer();
-    await waitForHealth(new URL("/local/home", RENDERER_URL), "renderer");
+    // Il renderer Next NON espone /api/health: si attende la pagina /local/setup.
+    await waitForHealth(RENDERER_URL, "renderer", "/local/setup");
 
     const home = new URL("/local/home", RENDERER_URL);
     home.searchParams.set("server", LOCAL_URL);
@@ -172,6 +185,51 @@ async function main() {
       }
     }
     process.exit(1);
+  }
+}
+
+async function runDesktopMode() {
+  const binary = electronBinary();
+  if (!binary) {
+    log("Electron non trovato: passo alla modalità browser.");
+    return runBrowserMode();
+  }
+  // Crea la directory dei dati prima che Electron apra il database.
+  await mkdir(DATA_DIR, { recursive: true });
+  log(`Avvio app desktop (Electron) da ${appDir}`);
+  const child = spawn(binary, [appDir], {
+    env: {
+      ...process.env,
+      FANTASTA_NPM_MODE: "1",
+      FANTASTA_LOCAL_SERVER_URL: LOCAL_URL,
+      FANTASTA_HOST: HOST,
+      FANTASTA_PORT: LOCAL_PORT,
+      FANTASTA_RENDERER_PORT: RENDERER_PORT,
+      FANTASTA_DATABASE_PATH: DB_PATH,
+    },
+    stdio: "inherit",
+  });
+  running.push(child);
+
+  const interrupted = await new Promise((resolve) => {
+    const onSignal = () => {
+      running.forEach((c) => { try { c.kill("SIGTERM"); } catch {} });
+      resolve(true);
+    };
+    child.on("exit", (code, signal) => resolve(code === 0 ? false : true));
+    process.once("SIGINT", onSignal);
+    process.once("SIGTERM", onSignal);
+  });
+  if (interrupted) {
+    log("App desktop chiusa. L'asta è offline.");
+  }
+}
+
+async function main() {
+  if (browserMode) {
+    await runBrowserMode();
+  } else {
+    await runDesktopMode();
   }
 }
 

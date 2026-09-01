@@ -105,21 +105,34 @@ Get-FileHash .\Fantasta-x64.exe -Algorithm SHA256
 
 Se ti serve l'installer per un'altra piattaforma o vuoi eseguire dal sorgente: `git clone <repo> && npm ci && npm run desktop:package` (vedi sotto).
 
-### Avvia con npx (tutte le piattaforme, senza installazione)
+### Installare l'app desktop con npx/npm (senza installer, niente avvisi di sicurezza)
 
-Non vuoi installare un installer? La stessa app gira direttamente da npm con **Node.js ≥ 22** (non serve Electron, quindi niente avvisi di sicurezza all'apertura):
+Vuoi la **vera app desktop** ma senza scaricare il .dmg/.exe? Si installa da npm con **Node.js ≥ 22**:
 
 ```bash
 npx fantasta
 ```
 
-> Al primo avvio scarica il pacchetto (~7 MB), poi parte il server SQLite/LAN (porta `47821`) con il renderer web (porta `47822`) e si apre il browser sulla regia. I partecipanti si collegano dal telefono come sempre (QR/link). Sessioni e database persistono in `~/.fantasta/`; `Ctrl+C` per fermare tutto.
+> Al primo avvio npm scarica il pacchetto insieme al binario Electron (~120 MB, solo la prima volta). Poi si apre la **vera finestra dell'app**: server SQLite/LAN su porta `47821`, renderer su `47822`, partecipanti dal telefono come sempre (QR/link). Dati e sessioni persistono in `~/Library/Application Support/Fantasta` (macOS) / `~/.fantasta/` (altre piattaforme). `Ctrl+C` nel terminale chiude l'app.
 
-Porte custom o installazione locale:
+**Perché niente avvisi di sicurezza?** L'avviso *"app scaricata da internet"* (Gatekeeper su macOS, SmartScreen su Windows) compare solo sui file scaricati dal **browser**, che macOS/Windows marcano come "quarantena". npm scarica i pacchetti con le sue librerie, **senza quel flag**: il binario Electron incluso è firmato da GitHub e non viene mai segnalato come scaricato dal browser. L'app quindi parte sempre senza dialoghi, anche su un computer che non l'ha mai vista. (Gli installer `.dmg`/`.exe` della sezione sopra invece arrivano dal browser e possono chiedere l'autorizzazione la prima volta se non firmati.)
+
+Installazione globale (menu Avvio/Applicazioni + comando `fantasta`):
+
+```bash
+npm install -g fantasta && fantasta
+```
+
+Porte occupate? Cambiale con le variabili d'ambiente:
 
 ```bash
 FANTASTA_PORT=49001 FANTASTA_RENDERER_PORT=49002 npx fantasta
-npm install -g fantasta && fantasta
+```
+
+Preferisci la regia nel browser invece della finestra? Aggiungi `--browser`:
+
+```bash
+npx fantasta --browser
 ```
 
 ## Modalità desktop (sviluppo)

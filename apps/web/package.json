@@ -1,6 +1,6 @@
 {
   "name": "@fantasta/web",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -11,8 +11,8 @@
     "test": "tsx --test lib/domain/league-export-parser.test.ts"
   },
   "dependencies": {
-    "@fantasta/contracts": "0.2.0",
-    "@fantasta/domain": "0.2.0",
+    "@fantasta/contracts": "0.3.0",
+    "@fantasta/domain": "0.3.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.57.0",
     "lucide-react": "^0.542.0",

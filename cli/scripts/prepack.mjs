@@ -3,9 +3,10 @@
 // L'app desktop è due processi Node: il server SQLite/LAN compilato
 // (apps/desktop/dist/local-server.cjs) e il renderer Next standalone
 // (apps/web/.next/standalone). Questo script li copia dentro resources/ così
-// il pacchetto è autonomo: npx fantasta li avvia con Node, senza Electron.
+// il pacchetto è autonomo: npx fantasta li avvia con Electron (modalità
+// desktop) oppure con Node + browser (modalità --browser).
 import { execSync } from "node:child_process";
-import { copyFile, cp, mkdir, readdir, rm } from "node:fs/promises";
+import { copyFile, cp, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -63,5 +64,23 @@ console.log("[prepack] renderer standalone: OK");
 // 3. Asset statici del renderer (.next/static e public).
 await cp(path.join(web, ".next", "static"), path.join(resources, "web", "apps", "web", ".next", "static"), { recursive: true, force: true });
 await cp(path.join(web, "public"), path.join(resources, "web", "apps", "web", "public"), { recursive: true, force: true });
+
+// 4. App Electron (modalità desktop): main.cjs + preload.cjs + package.json.
+// Electron viene eseguito con `electron resources/app`; le risorse precedenti
+// (local-server.cjs e web/) restano fuori da app/, a livello di resources/.
+const electronApp = path.join(resources, "app");
+await mkdir(path.join(electronApp, "electron"), { recursive: true });
+await copyFile(path.join(desktop, "electron", "main.cjs"), path.join(electronApp, "electron", "main.cjs"));
+await copyFile(path.join(desktop, "electron", "preload.cjs"), path.join(electronApp, "electron", "preload.cjs"));
+await writeFile(
+  path.join(electronApp, "package.json"),
+  JSON.stringify({ name: "fantasta", version: "1.0.0", main: "electron/main.cjs", private: true }, null, 2) + "\n",
+);
+// Icone dell'app: la finestra da npm gira sul bundle Electron generico, quindi
+// senza queste l'icona nel Dock/taskbar sarebbe quella di default di Electron.
+await mkdir(path.join(electronApp, "build"), { recursive: true });
+await copyFile(path.join(desktop, "build", "icon.icns"), path.join(electronApp, "build", "icon.icns"));
+await copyFile(path.join(desktop, "build", "icon.ico"), path.join(electronApp, "build", "icon.ico"));
+console.log("[prepack] app Electron: OK (con icone)");
 
 console.log("[prepack] risorse assemblate in cli/resources");

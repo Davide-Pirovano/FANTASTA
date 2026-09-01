@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, safeStorage, session, shell, utilityProcess } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, nativeImage, safeStorage, session, shell, utilityProcess } = require("electron");
 const { spawn } = require("node:child_process");
 const { readFile, writeFile, mkdir, copyFile, rename, unlink, access } = require("node:fs/promises");
 const { randomUUID } = require("node:crypto");
@@ -11,6 +11,16 @@ let rendererOrigin = process.env.FANTASTA_RENDERER_URL ?? "http://127.0.0.1:3000
 let localService;
 let rendererService;
 let hostConfig = { sessionId: null, leagueCode: null };
+
+// Modalità "npm" (npx fantasta): Electron gira dal pacchetto npm, NON da un
+// .app impacchettato. Le risorse (local-server.cjs + renderer standalone)
+// stanno fuori da app/: main.cjs vive in resources/app/electron, quindi
+// resourcesRoot = ../../ (= resources/ del pacchetto).
+const npmMode = process.env.FANTASTA_NPM_MODE === "1";
+const bundled = app.isPackaged || npmMode;
+const resourcesRoot = npmMode && !app.isPackaged
+  ? path.resolve(__dirname, "../..")
+  : process.resourcesPath;
 
 function hostConfigPath() {
   return path.join(app.getPath("userData"), "host.json");
@@ -186,7 +196,7 @@ async function startLocalService() {
   if (process.env.FANTASTA_START_LOCAL_SERVER === "0") return;
   // In sviluppo il server SQLite gira attraverso tsx: NON e un runtime Electron,
   // quindi lo si mantiene con child_process.spawn (qui l'icona Dock non interessa).
-  if (!app.isPackaged) {
+  if (!bundled) {
     const entrypoint = path.join(repositoryRoot, "apps/desktop/src/main.ts");
     localService = spawn(process.execPath, ["--import", "tsx", entrypoint], {
       cwd: repositoryRoot,
@@ -206,7 +216,7 @@ async function startLocalService() {
   // esegue come helper invisibile di Electron, senza icona separata nel Dock
   // (a differenza di child_process.spawn del binario Electron con RUN_AS_NODE,
   // che macOS mostra come seconda app "exec").
-  const entrypoint = path.join(process.resourcesPath, "local-server.cjs");
+  const entrypoint = path.join(resourcesRoot, "local-server.cjs");
   localService = utilityProcess.fork(entrypoint, [], {
     env: {
       ...process.env,
@@ -232,15 +242,19 @@ async function waitForRenderer(url) {
 }
 
 async function startRendererService() {
-  if (!app.isPackaged || process.env.FANTASTA_RENDERER_URL) return;
+  if (!bundled || process.env.FANTASTA_RENDERER_URL) return;
   const port = process.env.FANTASTA_RENDERER_PORT ?? "47822";
   rendererOrigin = `http://127.0.0.1:${port}`;
-  const entrypoint = path.join(process.resourcesPath, "web", "apps", "web", "server.js");
+  const entrypoint = path.join(resourcesRoot, "web", "apps", "web", "server.js");
   // Il renderer deve essere raggiungibile dalla LAN: il QR del wizard punta a
   // http://<IP-locale>:47822, dove i telefoni caricano la vista partecipante.
   // (In sviluppo il renderer è esposto con `next dev --hostname 0.0.0.0`.)
-  rendererService = spawn(process.execPath, [entrypoint], {
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", HOSTNAME: "0.0.0.0", PORT: port },
+  // utilityProcess.fork, come per il server locale, evita la seconda icona
+  // "exec" nel Dock di macOS (spawn del binario Electron con RUN_AS_NODE la
+  // creerebbe).
+  rendererService = utilityProcess.fork(entrypoint, [], {
+    cwd: path.join(resourcesRoot, "web"),
+    env: { ...process.env, HOSTNAME: "0.0.0.0", PORT: port },
     stdio: "inherit",
   });
   await waitForRenderer(rendererOrigin);
@@ -255,6 +269,22 @@ async function resolveAdminSession() {
   if (!payload.sessionId) throw new Error("Risposta sessione locale non valida");
   await saveHostConfig({ sessionId: payload.sessionId });
   return payload.sessionId;
+}
+
+// Icona dell'app quando si gira dal bundle Electron generico (modalità npm).
+// Nel pacchetto .dmg/.exe l'icona arriva già dal bundle, qui va impostata a mano.
+function applyAppIcon(window) {
+  if (process.platform === "darwin") {
+    try {
+      const image = nativeImage.createFromPath(path.join(__dirname, "..", "build", "icon.icns"));
+      if (!image.isEmpty() && app.dock) app.dock.setIcon(image);
+    } catch { /* icona opzionale */ }
+  } else if (window) {
+    const icon = process.platform === "win32"
+      ? path.join(__dirname, "..", "build", "icon.ico")
+      : path.join(__dirname, "..", "build", "icon.icns");
+    try { window.setIcon(nativeImage.createFromPath(icon)); } catch { /* icona opzionale */ }
+  }
 }
 
 function createWindow(adminSession) {
@@ -278,6 +308,7 @@ function createWindow(adminSession) {
       spellcheck: true,
     },
   });
+  if (npmMode) applyAppIcon(window);
   // L'app si apre sempre dalla home: da lì si crea una nuova asta oppure si
   // rientra in regia con la card "Entra nella tua asta" (se c'è una lega salvata).
   const target = new URL("/local/home", rendererUrl);
@@ -304,6 +335,10 @@ function createWindow(adminSession) {
 
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
+  // Da npm l'app gira come binario "Electron": rinominare subito fa sì che
+  // userData (e quindi il database) finisca in ~/Library/Application Support/
+  // Fantasta, come per l'app installata, non in ".../Electron".
+  if (npmMode) app.setName("Fantasta");
   app.on("second-instance", () => BrowserWindow.getAllWindows()[0]?.focus());
   app.whenReady().then(async () => {
     app.setAboutPanelOptions({
