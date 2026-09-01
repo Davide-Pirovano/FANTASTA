@@ -105,6 +105,23 @@ Get-FileHash .\Fantasta-x64.exe -Algorithm SHA256
 
 Se ti serve l'installer per un'altra piattaforma o vuoi eseguire dal sorgente: `git clone <repo> && npm ci && npm run desktop:package` (vedi sotto).
 
+### Avvia con npx (tutte le piattaforme, senza installazione)
+
+Non vuoi installare un installer? La stessa app gira direttamente da npm con **Node.js ≥ 22** (non serve Electron, quindi niente avvisi di sicurezza all'apertura):
+
+```bash
+npx fantasta
+```
+
+> Al primo avvio scarica il pacchetto (~7 MB), poi parte il server SQLite/LAN (porta `47821`) con il renderer web (porta `47822`) e si apre il browser sulla regia. I partecipanti si collegano dal telefono come sempre (QR/link). Sessioni e database persistono in `~/.fantasta/`; `Ctrl+C` per fermare tutto.
+
+Porte custom o installazione locale:
+
+```bash
+FANTASTA_PORT=49001 FANTASTA_RENDERER_PORT=49002 npx fantasta
+npm install -g fantasta && fantasta
+```
+
 ## Modalità desktop (sviluppo)
 
 ```bash

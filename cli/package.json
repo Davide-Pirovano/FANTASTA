@@ -1,0 +1,29 @@
+{
+  "name": "fantasta",
+  "version": "0.2.0",
+  "description": "Asta di Fantacalcio in LAN senza server: avvia la regia locale e i partecipanti si collegano dal telefono. Nessuna installazione richiesta.",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "fantasta": "bin/fantasta.js"
+  },
+  "files": [
+    "bin",
+    "resources",
+    "package.json",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "prepack": "node scripts/prepack.mjs"
+  },
+  "keywords": [
+    "fantacalcio",
+    "asta",
+    "lan",
+    "fantasy",
+    "italian"
+  ]
+}

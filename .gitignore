@@ -24,3 +24,6 @@ output/
 # Stato locale della Supabase CLI
 supabase/.temp/
 supabase/.branches/
+
+# Pacchetto npm fantasta: risorse generate da apps/web e apps/desktop
+cli/resources
