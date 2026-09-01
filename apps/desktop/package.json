@@ -1,6 +1,6 @@
 {
   "name": "@fantasta/desktop",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "description": "Aste di Fantacalcio in locale, con regia desktop e partecipanti collegati dalla LAN",
@@ -29,8 +29,8 @@
     "package": "npm run bundle:server && electron-builder"
   },
   "dependencies": {
-    "@fantasta/contracts": "0.3.0",
-    "@fantasta/domain": "0.3.0",
+    "@fantasta/contracts": "0.3.1",
+    "@fantasta/domain": "0.3.1",
     "ws": "^8.21.3"
   },
   "devDependencies": {
